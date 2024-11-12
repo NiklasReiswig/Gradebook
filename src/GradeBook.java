@@ -392,7 +392,7 @@ public class GradeBook {
         addGradingScale(className);
         System.out.println("Does this class use rounding? (Y/N)");
         String yn = scanner.nextLine().toLowerCase();
-        if (!yn.equals("y") && !yn.equals("yes")) {
+        if (yn.equals("y") || yn.equals("yes")) {
             addRounding(className);
         }
 
@@ -791,15 +791,26 @@ public class GradeBook {
             System.out.println("---------------");
             for (String category : categories.keySet()) {
                 ArrayList<Double> grades = categories.get(category);
-                System.out.print(category + ": " + calculateCatGrade(className, category));
-                for (Double grade : grades) {
-                    System.out.print(grade + ", ");
+                // Start building the output line
+                StringBuilder output = new StringBuilder();
+                output.append(category)
+                        .append(": ")
+                        .append(String.format("%.2f", calculateCatGrade(className, category)))
+                        .append(" | Grades: ");
+
+                // Append grades separated by commas
+                for (int i = 0; i < grades.size(); i++) {
+                    output.append(String.format("%.2f", grades.get(i)));
+                    if (i < grades.size() - 1) {
+                        output.append(", ");
+                    }
                 }
-                System.out.println("\n");
+                System.out.println(output.toString());
             }
-            System.out.println(calculateFinalGrade(className)[0]+" - "+calculateFinalGrade(className)[1]);
-            System.out.print("---------------");
-            System.out.println("\n");
+            // Display final grade and letter grade
+            String[] finalGrade = calculateFinalGrade(className);
+            System.out.println(String.format("Final Grade: %.2f   %s", Double.parseDouble(finalGrade[0]), finalGrade[1]));
+            System.out.println("---------------\n");
         }
         return true;
     }
@@ -836,52 +847,49 @@ public class GradeBook {
         return catGrade;
     }
 
-    /**
-     * Calculates the final weighted grade for a class and determines the letter grade.
-     * @param className the name of the class.
-     * @return an array containing the final grade and corresponding letter grade.
-     */
     public String[] calculateFinalGrade(String className) {
         String[] grade = new String[2];  // Array to store final grade and letter grade
-        double finalGrade = 0;
+        double finalGrade = 0.0;
         // Get the categories and their percentages for the specified class
         HashMap<String, ArrayList<Double>> classCategories = classes.get(className);
         HashMap<String, Double> percents = percentage.get(className);
         // Calculate weighted sum of category grades
         for (String category : classCategories.keySet()) {
-            finalGrade += calculateCatGrade(className, category) * percents.get(category);
+            double categoryPercentage = percents.get(category) / 100.0; // Convert to decimal
+            finalGrade += calculateCatGrade(className, category) * categoryPercentage;
         }
         // Apply rounding if enabled for the class
         if (rounding.getOrDefault(className, false)) {
-            ArrayList<Double> scale = gradingScale.get(className);
-            if (scale != null) {
-                for (Double cutoff : scale) {
-                    // Check if finalGrade is close enough to round up to this cutoff
-                    if (cutoff != null && finalGrade < cutoff && cutoff - finalGrade <= ROUND_SIZE) {
-                        finalGrade = cutoff;
-                        break;  // Exit loop once the grade is rounded
-                    }
+            finalGrade = applyRounding(finalGrade, className);
+        }
+        grade[0] = String.format("%.2f", finalGrade);  // Store the rounded final grade
+        // Find the letter grade by matching finalGrade to the grading scale
+        grade[1] = getLetterGrade(finalGrade, className);
+        return grade;
+    }
+    private double applyRounding(double finalGrade, String className) {
+        ArrayList<Double> scale = gradingScale.get(className);
+        if (scale != null) {
+            for (Double cutoff : scale) {
+                if (cutoff != null && finalGrade < cutoff && cutoff - finalGrade <= ROUND_SIZE) {
+                    return cutoff;
                 }
             }
         }
-        grade[0] = String.valueOf(finalGrade);  // Store the rounded final grade
-        // Find the letter grade by matching finalGrade to the grading scale
+        return finalGrade;
+    }
+    private String getLetterGrade(double finalGrade, String className) {
         ArrayList<Double> scale = gradingScale.get(className);
         if (scale != null) {
             String[] letterGrades = {"A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"};
-            // Iterate through the grading scale and find the corresponding letter grade
             for (int i = 0; i < scale.size(); i++) {
                 Double cutoff = scale.get(i);
                 if (cutoff != null && finalGrade >= cutoff) {
-                    grade[1] = letterGrades[i];
-                    break;  // Exit loop once the letter grade is found
+                    return letterGrades[i];
                 }
             }
         }
-        else {
-            grade[1] = "No Scale";  // If no grading scale is defined, set as "No Scale"
-        }
-        return grade;
+        return "No Scale";
     }
 
 }
