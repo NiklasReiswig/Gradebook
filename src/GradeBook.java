@@ -46,27 +46,40 @@ public class GradeBook {
      * @return true if all files loaded successfully; false if any fail to load.
      */
     public boolean load() {
-        if(!loadGrades()){
+        if (!loadPercentage()) {
+            System.out.println("Could not load percentages or percentages do not exist");
+            return false;
+        }
+        initializeClassesAndCategories();
+        if (!loadGrades()) {
             System.out.println("Could not load grades or grades do not exist");
             return false;
         }
-        if(!loadGradingScale()){
-            System.out.println("Could not load grading scales or grading scales do not exist ");
+        if (!loadGradingScale()) {
+            System.out.println("Could not load grading scales or grading scales do not exist");
             return false;
         }
-        if(!loadPercentage()){
-            System.out.println("Could not load percentages or percentages do not exist ");
+        if (!loadRounding()) {
+            System.out.println("Could not load rounding or rounding does not exist");
             return false;
         }
-        if(!loadRounding()){
-            System.out.println("Could not load roundings or roundings do not exist ");
-            return false;
-        }
-        if(!loadDropped()){
-            System.out.println("Could not load dropped or dropped do not exist ");
+        if (!loadDropped()) {
+            System.out.println("Could not load dropped or dropped does not exist");
             return false;
         }
         return true;
+    }
+    private void initializeClassesAndCategories() {
+        for (String className : percentage.keySet()) {
+            HashMap<String, Double> classCategories = percentage.get(className);
+            // Ensure 'classes' hashmap has an entry for this class
+            classes.computeIfAbsent(className, k -> new HashMap<>());
+            HashMap<String, ArrayList<Double>> classGrades = classes.get(className);
+            for (String category : classCategories.keySet()) {
+                // Ensure 'classes' hashmap has an entry for this category
+                classGrades.computeIfAbsent(category, k -> new ArrayList<>());
+            }
+        }
     }
     private boolean loadGrades() {
         try (BufferedReader reader = new BufferedReader(new FileReader(GRADES))) {
