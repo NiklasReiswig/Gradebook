@@ -1,7 +1,4 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
@@ -73,7 +70,11 @@ public class GradeBook {
     }
     private boolean loadGrades() {
         try (BufferedReader reader = new BufferedReader(new FileReader(GRADES))) {
-            reader.readLine();  // Skip header line
+            String header = reader.readLine();  // Read header line
+            if (header == null) {
+                // File is empty
+                return true;
+            }
             String line;
             int lineNumber = 1; // Start after the header
             while ((line = reader.readLine()) != null) {
@@ -81,7 +82,8 @@ public class GradeBook {
                 try {
                     String[] values = line.split(",");
                     if (values.length < 3) {
-                        throw new IllegalArgumentException("Not enough values on line " + lineNumber);
+                        // Skip lines with insufficient data
+                        continue;
                     }
                     String className = values[0].trim();
                     String category = values[1].trim();
@@ -92,11 +94,13 @@ public class GradeBook {
                             .computeIfAbsent(category, k -> new ArrayList<>())
                             .add(grade);
                 } catch (NumberFormatException e) {
-                    System.out.println("Invalid number format on line " + lineNumber + ": " + e.getMessage());
-                } catch (IllegalArgumentException e) {
-                    System.out.println("Data error on line " + lineNumber + ": " + e.getMessage());
+                    // Skip invalid number formats
+                    continue;
                 }
             }
+            return true;
+        } catch (FileNotFoundException e) {
+            // File not found, treat as empty data
             return true;
         } catch (IOException e) {
             System.out.println("An error occurred while loading grades: " + e.getMessage());
@@ -105,22 +109,43 @@ public class GradeBook {
     }
     private boolean loadGradingScale() {
         try (BufferedReader reader = new BufferedReader(new FileReader(GRADING_SCALE))) {
-            reader.readLine();  // Skip header line
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] values = line.split(",");
-                String className = values[0].trim();
-                ArrayList<Double> scale = new ArrayList<>();
-
-                // Populate the grading scale list for this class
-                for (int i = 1; i < values.length; i++) {
-                    if (!values[i].trim().isEmpty()) {  // Check for non-empty value
-                        scale.add(Double.parseDouble(values[i].trim()));
-                    }
-                }
-
-                gradingScale.put(className, scale);
+            String header = reader.readLine();  // Read header line
+            if (header == null) {
+                // File is empty
+                return true;
             }
+            String line;
+            int lineNumber = 1; // Starting after the header
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                try {
+                    String[] values = line.split(",");
+                    if (values.length < 2) {
+                        // Skip lines with insufficient data
+                        continue;
+                    }
+                    String className = values[0].trim();
+                    ArrayList<Double> scale = new ArrayList<>();
+
+                    // Populate the grading scale list for this class
+                    for (int i = 1; i < values.length; i++) {
+                        String value = values[i].trim();
+                        if (!value.isEmpty() && !value.equalsIgnoreCase("null")) {
+                            scale.add(Double.parseDouble(value));
+                        } else {
+                            scale.add(null); // Add null to maintain the scale size
+                        }
+                    }
+
+                    gradingScale.put(className, scale);
+                } catch (NumberFormatException e) {
+                    // Skip invalid number formats
+                    continue;
+                }
+            }
+            return true;
+        } catch (FileNotFoundException e) {
+            // File not found, treat as empty data
             return true;
         } catch (IOException e) {
             System.out.println("An error occurred while loading grading scales: " + e.getMessage());
@@ -164,11 +189,21 @@ public class GradeBook {
         try (BufferedReader reader = new BufferedReader(new FileReader(ROUNDING))) {
             reader.readLine();  // Skip header line
             String line;
+            int lineNumber = 1; // Start counting after the header
             while ((line = reader.readLine()) != null) {
-                String[] values = line.split(",");
-                String className = values[0];
-                boolean round = Boolean.parseBoolean(values[1]);
-                rounding.put(className, round);
+                lineNumber++;
+                try {
+                    String[] values = line.split(",");
+                    if (values.length < 2) {
+                        System.out.println("Data error on line " + lineNumber + ": Not enough values on line " + lineNumber);
+                        continue; // Skip to the next line
+                    }
+                    String className = values[0].trim();
+                    boolean round = Boolean.parseBoolean(values[1].trim());
+                    rounding.put(className, round);
+                } catch (Exception e) {
+                    System.out.println("Error processing line " + lineNumber + ": " + e.getMessage());
+                }
             }
             return true;
         } catch (IOException e) {
@@ -180,13 +215,22 @@ public class GradeBook {
         try (BufferedReader reader = new BufferedReader(new FileReader(DROP))) {
             reader.readLine();  // Skip header line
             String line;
+            int lineNumber = 1; // Start counting after the header
             while ((line = reader.readLine()) != null) {
-                String[] values = line.split(",");
-                String className = values[0].trim();
-                String category = values[1].trim();
-                double dropped = Double.parseDouble(values[2].trim());
-
-                drop.computeIfAbsent(className, k -> new HashMap<>()).put(category, dropped);
+                lineNumber++;
+                try {
+                    String[] values = line.split(",");
+                    if (values.length < 3) {
+                        System.out.println("Data error on line " + lineNumber + ": Not enough values.");
+                        continue; // Skip to the next line
+                    }
+                    String className = values[0].trim();
+                    String category = values[1].trim();
+                    double dropped = Double.parseDouble(values[2].trim());
+                    drop.computeIfAbsent(className, k -> new HashMap<>()).put(category, dropped);
+                } catch (Exception e) {
+                    System.out.println("Error processing line " + lineNumber + ": " + e.getMessage());
+                }
             }
             return true;
         } catch (IOException e) {
@@ -346,7 +390,12 @@ public class GradeBook {
         }
         addCategory(className);
         addGradingScale(className);
-        addRounding(className);
+        System.out.println("Does this class use rounding? (Y/N)");
+        String yn = scanner.nextLine().toLowerCase();
+        if (!yn.equals("y") && !yn.equals("yes")) {
+            addRounding(className);
+        }
+
         return true;
     }
     /**
@@ -438,7 +487,7 @@ public class GradeBook {
             System.out.println("Would you like to enter another grade? (Y/N)");
             String yn = scanner.nextLine().toLowerCase();
             if (yn.equals("y") || yn.equals("yes")) {
-                addGrade();
+                addGrade(className, categoryName);
             } else {
                 return true;
             }
@@ -455,7 +504,7 @@ public class GradeBook {
             System.out.println("Would you like to enter another grade? (Y/N)");
             String yn = scanner.nextLine().toLowerCase();
             if (yn.equals("y") || yn.equals("yes")) {
-                addGrade();
+                addGrade(className, categoryName);
             } else {
                 return true;
             }
