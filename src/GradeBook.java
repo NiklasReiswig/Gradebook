@@ -75,16 +75,27 @@ public class GradeBook {
         try (BufferedReader reader = new BufferedReader(new FileReader(GRADES))) {
             reader.readLine();  // Skip header line
             String line;
+            int lineNumber = 1; // Start after the header
             while ((line = reader.readLine()) != null) {
-                String[] values = line.split(",");
-                String className = values[0].trim();
-                String category = values[1].trim();
-                double grade = Double.parseDouble(values[2].trim());
+                lineNumber++;
+                try {
+                    String[] values = line.split(",");
+                    if (values.length < 3) {
+                        throw new IllegalArgumentException("Not enough values on line " + lineNumber);
+                    }
+                    String className = values[0].trim();
+                    String category = values[1].trim();
+                    double grade = Double.parseDouble(values[2].trim());
 
-                // Ensure the class and category entries exist, then add grade
-                classes.computeIfAbsent(className, k -> new HashMap<>())
-                        .computeIfAbsent(category, k -> new ArrayList<>())
-                        .add(grade);
+                    // Ensure the class and category entries exist, then add grade
+                    classes.computeIfAbsent(className, k -> new HashMap<>())
+                            .computeIfAbsent(category, k -> new ArrayList<>())
+                            .add(grade);
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid number format on line " + lineNumber + ": " + e.getMessage());
+                } catch (IllegalArgumentException e) {
+                    System.out.println("Data error on line " + lineNumber + ": " + e.getMessage());
+                }
             }
             return true;
         } catch (IOException e) {
@@ -118,18 +129,30 @@ public class GradeBook {
     }
     private boolean loadPercentage() {
         try (BufferedReader reader = new BufferedReader(new FileReader(PERCENTAGE))) {
-            String line = reader.readLine();  // Skip header line
+            reader.readLine();  // Skip header line
+            String line;
+            int lineNumber = 1;
             while ((line = reader.readLine()) != null) {
-                String[] values = line.split(",");
-                String className = values[0];
-                String category = values[1];
-                double percent = Double.parseDouble(values[2]);
+                lineNumber++;
+                try {
+                    String[] values = line.split(",");
+                    if (values.length < 3) {
+                        throw new IllegalArgumentException("Not enough values on line " + lineNumber);
+                    }
+                    String className = values[0].trim();
+                    String category = values[1].trim();
+                    double percent = Double.parseDouble(values[2].trim());
 
-                // Ensure class entry exists in percentage map
-                percentage.putIfAbsent(className, new HashMap<>());
+                    // Ensure class entry exists in percentage map
+                    percentage.computeIfAbsent(className, k -> new HashMap<>());
 
-                // Add category percentage
-                addPercentage(className, category, percent);
+                    // Add category percentage
+                    addPercentage(className, category, percent);
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid number format on line " + lineNumber + ": " + e.getMessage());
+                } catch (IllegalArgumentException e) {
+                    System.out.println("Data error on line " + lineNumber + ": " + e.getMessage());
+                }
             }
             return true;
         } catch (IOException e) {
@@ -321,6 +344,9 @@ public class GradeBook {
         } else {
             classes.put(className, new HashMap<String, ArrayList<Double>>());
         }
+        addCategory(className);
+        addGradingScale(className);
+        addRounding(className);
         return true;
     }
     /**
@@ -362,25 +388,26 @@ public class GradeBook {
      * @return true if the category is successfully added, false if the category already exists.
      */
     public boolean addCategory(String className) {
-        String categoryName = confirmInput("What category would you like to add?", "Category Name");
-        if(addCategory(className, categoryName)) {
-            addPercentage(className, categoryName);
-            addDroppedInCategory(className,categoryName);
-            System.out.println("Would you like to enter another category? (Y/N)");
-            String yn = scanner.nextLine().toLowerCase();
-            if (yn.equals("y") || yn.equals("yes")) {
-                categoryName = confirmInput("What category would you like to add?", "Category Name");
-                addCategory(className, categoryName);
-            }
-            else {
-                return true;
+        while (true) {
+            String categoryName = confirmInput("What category would you like to add?", "Category Name");
+            if (addCategory(className, categoryName)) {
+                addPercentage(className, categoryName);
+                addDroppedInCategory(className, categoryName);
+                System.out.println("Would you like to enter another category? (Y/N)");
+                String yn = scanner.nextLine().toLowerCase();
+                if (!yn.equals("y") && !yn.equals("yes")) {
+                    return true;
+                }
+            } else {
+                System.out.println("Category already exists or entry canceled.");
+                // Optionally, ask if the user wants to try adding a different category
+                System.out.println("Would you like to try adding a different category? (Y/N)");
+                String yn = scanner.nextLine().toLowerCase();
+                if (!yn.equals("y") && !yn.equals("yes")) {
+                    return false;
+                }
             }
         }
-        else {
-            System.out.println("Category entry canceled.");
-            return true;
-        }
-        return false;
     }
 
 
@@ -509,18 +536,20 @@ public class GradeBook {
      * @param scale The list to add the cutoff value to.
      */
     private void addCutoff(String grade, ArrayList<Double> scale) {
-        System.out.println("What is the lower end cutoff for " + grade + "? (if it doesn’t exist, enter 'NA')");
-        String input = scanner.nextLine().trim().toLowerCase();
-
-        if (input.equals("na")) {
-            scale.add(null);  // Add null for missing grade cutoff
-        } else {
-            try {
-                double cutoff = Double.parseDouble(input);
-                scale.add(cutoff);
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid input. Please enter a numerical value or 'NA'.");
-                addCutoff(grade, scale);  // Retry on invalid input
+        while (true) {
+            System.out.println("What is the lower end cutoff for " + grade + "? (if it doesn’t exist, enter 'NA')");
+            String input = scanner.nextLine().trim().toLowerCase();
+            if (input.equals("na")) {
+                scale.add(null);  // Add null for missing grade cutoff
+                break;
+            } else {
+                try {
+                    double cutoff = Double.parseDouble(input);
+                    scale.add(cutoff);
+                    break;
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid input. Please enter a numerical value or 'NA'.");
+                }
             }
         }
     }
@@ -543,13 +572,10 @@ public class GradeBook {
      *
      * @return true if the drop information is successfully added.
      */
-    public boolean addDroppedInCategory() {
-        String className = confirmClassExists("What class would you like to change the amount of dropped items in?");
-        for(String category : classes.keySet()) {
-            System.out.println("How many items in " + category + " are dropped?");
-            double dropped = getValidPositiveDouble();
-            addDroppedInCategory(className, category, dropped);
-        }
+    public boolean addDroppedInCategory(String className, String categoryName) {
+        System.out.println("How many items in " + categoryName + " are dropped?");
+        double dropped = getValidPositiveDouble();
+        addDroppedInCategory(className, categoryName, dropped);
         return true;
     }
 

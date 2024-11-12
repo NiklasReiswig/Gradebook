@@ -37,8 +37,7 @@ public class Driver {
 
             switch (choice) {
                 case "1":
-
-                    gradeBook.addCategory(gradeBook.addClass());
+                    gradeBook.addClass();
                     break;
                 case "2":
                     gradeBook.addGrade();
