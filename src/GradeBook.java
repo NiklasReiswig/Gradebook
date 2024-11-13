@@ -50,11 +50,11 @@ public class GradeBook {
             System.out.println("Could not load percentages or percentages do not exist");
             return false;
         }
-        initializeClassesAndCategories();
         if (!loadGrades()) {
             System.out.println("Could not load grades or grades do not exist");
             return false;
         }
+        initializeClassesAndCategories(); // Move this after loading grades
         if (!loadGradingScale()) {
             System.out.println("Could not load grading scales or grading scales do not exist");
             return false;
