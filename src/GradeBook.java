@@ -969,7 +969,6 @@ public class GradeBook {
                 System.out.println("Category does not exist. Please enter a valid category.");
                 continue;
             }
-            System.out.println("What grade would you like to add?");
             double grade = getValidGrade();
             hypotheticalCategories.get(category).add(grade);
 
@@ -984,15 +983,17 @@ public class GradeBook {
         for (String category : hypotheticalCategories.keySet()) {
             double originalCatGrade = calculateCatGrade(className, category);
             double newCatGrade = calculateCatGradeWithGrades(className, category, hypotheticalCategories.get(category));
-            System.out.printf("Original Category Grade for %s: %.2f%%\n", category, originalCatGrade);
-            System.out.printf("New Category Grade with Hypothetical Grades for %s: %.2f%%\n", category, newCatGrade);
+            System.out.printf("Original %s: %.2f%%\n", category, originalCatGrade);
+            System.out.printf("Hypothetical %s: %.2f%%\n", category, newCatGrade);
+            System.out.println(" ");
         }
 
         // Calculate the original and new final grades
         double originalFinalGrade = calculateFinalGradeValue(className);
         double newFinalGrade = calculateFinalGradeWithHypothetical(className, hypotheticalCategories);
-        System.out.printf("Original Final Grade: %.2f%%\n", originalFinalGrade);
-        System.out.printf("New Final Grade with Hypothetical Grades: %.2f%%\n", newFinalGrade);
+        System.out.printf("Original Grade: %.2f%%\n", originalFinalGrade);
+        System.out.printf("New Final Grade: %.2f%%\n", newFinalGrade);
+        System.out.println("\n");
     }
     /**
      * Calculates the category grade using a provided list of grades, considering dropped grades.
@@ -1153,6 +1154,7 @@ public class GradeBook {
             System.out.printf("- In %s (%.2f%% of total grade), over %d remaining items, you need an average of %.2f%% per item.\n",
                     category, percents.get(category), itemsLeft, neededGrade);
         }
+        System.out.println("\n");
     }
     /**
      * Prompts the user to enter the number of remaining items in a category.
