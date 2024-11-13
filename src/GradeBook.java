@@ -1156,6 +1156,7 @@ public class GradeBook {
         }
         System.out.println("\n");
     }
+
     /**
      * Prompts the user to enter the number of remaining items in a category.
      * @param category The name of the category.
