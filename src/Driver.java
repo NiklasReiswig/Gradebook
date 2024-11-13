@@ -46,10 +46,10 @@ public class Driver {
                     gradeBook.displayClassesGrades();
                     break;
                 case "4":
-                    System.out.println("This feature is not supported yet.");
+                    gradeBook.addPossibleGrades();
                     break;
                 case "5":
-                    System.out.println("This feature is not supported yet.");
+                    gradeBook.calculateNeededGradesForLetterGrade();
                     break;
                 case "6":
                     exitWithPrompt(gradeBook); // Ask before exiting
