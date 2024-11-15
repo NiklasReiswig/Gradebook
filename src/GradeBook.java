@@ -20,6 +20,7 @@ public class GradeBook {
     private HashMap<String, Boolean> rounding = new HashMap<>();
     /// Holds what percentage each category is worth
     private HashMap<String, HashMap<String, Double>> percentage = new HashMap<>();
+    private static final String[] GRADE_LABELS = {"A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"};
 
 
     private static final String GRADES = "grades.csv";
@@ -154,6 +155,15 @@ public class GradeBook {
                         }
                     }
 
+                    // Ensure the last cutoff (for "F") is set to 0
+                    if (scale.size() < GRADE_LABELS.length) {
+                        // Pad with nulls if necessary
+                        while (scale.size() < GRADE_LABELS.length) {
+                            scale.add(null);
+                        }
+                    }
+                    scale.set(scale.size() - 1, 0.0); // Set "F" cutoff to 0.0
+
                     gradingScale.put(className, scale);
                 } catch (NumberFormatException e) {
                     // Skip invalid number formats
@@ -169,6 +179,7 @@ public class GradeBook {
             return false;
         }
     }
+
     private boolean loadPercentage() {
         try (BufferedReader reader = new BufferedReader(new FileReader(PERCENTAGE))) {
             reader.readLine();  // Skip header line
@@ -306,20 +317,22 @@ public class GradeBook {
     private boolean saveGradingScale() {
         try (FileWriter writer = new FileWriter(GRADING_SCALE)) {
             // Write the header
-            writer.write("Class,A+,A,A-,B+,B,B-,C+,C,C-,D+,D,D-,F\n");
-
-            // Grade labels in order for reference
-            String[] gradeLabels = {"A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"};
+            writer.write("Class," + String.join(",", GRADE_LABELS) + "\n");
 
             // Iterate through each class in gradingScale
             for (String className : gradingScale.keySet()) {
                 ArrayList<Double> scale = gradingScale.get(className);
                 StringBuilder line = new StringBuilder(className);
 
-                // Ensure we have enough cutoffs in `scale` to match `gradeLabels`
-                for (int i = 0; i < gradeLabels.length; i++) {
+                // Ensure we have enough cutoffs in `scale` to match `GRADE_LABELS`
+                for (int i = 0; i < GRADE_LABELS.length; i++) {
                     if (i < scale.size()) {
-                        line.append(",").append(scale.get(i));
+                        if (i == GRADE_LABELS.length - 1) {
+                            // For "F", ensure the cutoff is 0.0
+                            line.append(",").append(0.0);
+                        } else {
+                            line.append(",").append(scale.get(i));
+                        }
                     } else {
                         line.append(",");  // Leave blank if no cutoff for this grade
                     }
@@ -570,6 +583,16 @@ public class GradeBook {
      * @return true if the grading scale is added successfully.
      */
     private boolean addGradingScale(String className, ArrayList<Double> scale) {
+        // Ensure the last element corresponds to "F" and is set to 0.0
+        if (scale.size() < GRADE_LABELS.length) {
+            // Pad with nulls if necessary
+            while (scale.size() < GRADE_LABELS.length - 1) {
+                scale.add(null);
+            }
+            scale.add(0.0); // Set "F" cutoff to 0.0
+        } else {
+            scale.set(GRADE_LABELS.length - 1, 0.0);
+        }
         gradingScale.put(className, scale);
         return true;
     }
@@ -581,13 +604,14 @@ public class GradeBook {
     public boolean addGradingScale(String className) {
         ArrayList<Double> scale = new ArrayList<>();
 
-        // Standard grade labels
-        String[] grades = {"A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"};
-
-        // Prompt for each grade and add cutoff or null
-        for (String grade : grades) {
+        // Prompt for each grade and add cutoff or null, skip "F"
+        for (int i = 0; i < GRADE_LABELS.length - 1; i++) {
+            String grade = GRADE_LABELS[i];
             addCutoff(grade, scale);
         }
+
+        // Automatically set "F" cutoff to 0.0
+        scale.add(0.0);
 
         return addGradingScale(className, scale);
     }
@@ -597,6 +621,11 @@ public class GradeBook {
      * @param scale The list to add the cutoff value to.
      */
     private void addCutoff(String grade, ArrayList<Double> scale) {
+        if (grade.equals("F")) {
+            // Automatically set "F" cutoff to 0.0 without prompting
+            scale.add(0.0);
+            return;
+        }
         while (true) {
             System.out.println("What is the lower end cutoff for " + grade + "? (if it doesn’t exist, enter 'NA')");
             String input = scanner.nextLine().trim().toLowerCase();
@@ -936,15 +965,14 @@ public class GradeBook {
     private String getLetterGrade(double finalGrade, String className) {
         ArrayList<Double> scale = gradingScale.get(className);
         if (scale != null) {
-            String[] letterGrades = {"A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"};
             for (int i = 0; i < scale.size(); i++) {
                 Double cutoff = scale.get(i);
                 if (cutoff != null && finalGrade >= cutoff) {
-                    return letterGrades[i];
+                    return GRADE_LABELS[i];
                 }
             }
         }
-        return "No Scale";
+        return "F"; // If no higher cutoff matches, default to "F"
     }
     /**
      * Allows the user to add hypothetical grades to see how they would affect the final grade.
