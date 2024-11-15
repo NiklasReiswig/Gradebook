@@ -2,6 +2,7 @@ import java.util.Scanner;
 
 public class Driver {
     private static final Scanner scanner = new Scanner(System.in);
+    private static Thread shutdownHook;  // Store the shutdown hook reference
 
     public static void main(String[] args) {
         GradeBook gradeBook = new GradeBook();
@@ -15,15 +16,15 @@ public class Driver {
         }
 
         // Add a shutdown hook to save on unexpected exits
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        shutdownHook = new Thread(() -> {
             System.out.println("Autosaving data before exit...");
-            if(gradeBook.save()){
+            if (gradeBook.save()) {
                 System.out.println("Data saved successfully.");
-            }
-            else{
+            } else {
                 System.out.println("Data not saved.");
             }
-        }));
+        });
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         // Start the main program loop
         runProgramLoop(gradeBook);
@@ -76,6 +77,12 @@ public class Driver {
         String choice = scanner.nextLine().toLowerCase();
         if (choice.equals("y") || choice.equals("yes")) {
             gradeBook.save();
+        } else {
+            try {
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            } catch (IllegalStateException e) {
+                // Ignore if the shutdown is already in progress
+            }
         }
         System.out.println("Exiting program...");
     }
