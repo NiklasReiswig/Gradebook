@@ -1236,5 +1236,4 @@ public class GradeBook {
         }
         return cutoff;
     }
-
 }

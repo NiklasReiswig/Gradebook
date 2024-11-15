@@ -17,7 +17,12 @@ public class Driver {
         // Add a shutdown hook to save on unexpected exits
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Autosaving data before exit...");
-            gradeBook.save();
+            if(gradeBook.save()){
+                System.out.println("Data saved successfully.");
+            }
+            else{
+                System.out.println("Data not saved.");
+            }
         }));
 
         // Start the main program loop
