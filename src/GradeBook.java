@@ -547,16 +547,27 @@ public class GradeBook {
 
     /**
      * Prompts the user to enter a valid numerical grade.
+     * Allows grades over 100% but asks for confirmation if so.
      * @return A valid grade as a double.
      */
     private double getValidGrade() {
         while (true) {
             try {
-                System.out.println("What grade would you like to add?");
-                double grade = Double.parseDouble(scanner.nextLine().trim());
+                System.out.println("Enter the grade (0 or higher; extra credit allowed):");
+                String input = scanner.nextLine().trim();
+                double grade = Double.parseDouble(input);
 
                 if (grade < 0) {
-                    System.out.println("Grade must be a positive number. Please try again.");
+                    System.out.println("Grade cannot be negative. Please try again.");
+                } else if (grade > 100) {
+                    // Ask for confirmation if grade is over 100%
+                    System.out.printf("You entered %.2f%%, which is over 100%%. Is this correct? (Y/N)\n", grade);
+                    String confirmation = scanner.nextLine().trim().toLowerCase();
+                    if (confirmation.equals("y") || confirmation.equals("yes")) {
+                        return grade;
+                    } else {
+                        System.out.println("Please re-enter the grade.");
+                    }
                 } else {
                     return grade;
                 }
@@ -824,6 +835,13 @@ public class GradeBook {
             System.out.println("---------------");
             for (String category : categories.keySet()) {
                 ArrayList<Double> grades = categories.get(category);
+
+                // Calculate statistics
+                double average = calculateAverage(grades);
+                double median = calculateMedian(grades);
+                double highest = getHighestGrade(grades);
+                double lowest = getLowestGrade(grades);
+
                 // Start building the output line
                 StringBuilder output = new StringBuilder();
                 output.append(category)
@@ -839,6 +857,14 @@ public class GradeBook {
                     }
                 }
                 System.out.println(output.toString());
+
+                // Display statistics
+                System.out.printf("Statistics for %s:\n", category);
+                System.out.printf(" - Average: %.2f\n", average);
+                System.out.printf(" - Median: %.2f\n", median);
+                System.out.printf(" - Highest: %.2f\n", highest);
+                System.out.printf(" - Lowest: %.2f\n", lowest);
+                System.out.println();
             }
             // Display final grade and letter grade
             String[] finalGrade = calculateFinalGrade(className);
@@ -882,6 +908,7 @@ public class GradeBook {
 
     /**
      * Calculates the final grade and letter grade for the specified class.
+     * If the final numeric grade exceeds the highest cutoff, assigns the highest letter grade.
      * @param className The name of the class.
      * @return An array containing the final grade as a string and the corresponding letter grade.
      */
@@ -891,41 +918,10 @@ public class GradeBook {
         HashMap<String, ArrayList<Double>> classCategories = classes.get(className);
         HashMap<String, Double> percents = percentage.get(className);
 
-        // List to store category averages
-        ArrayList<Double> categoryAverages = new ArrayList<>();
-
-        // First, calculate the average grades for categories with grades
-        for (String category : classCategories.keySet()) {
-            ArrayList<Double> grades = classCategories.get(category);
-            if (grades != null && !grades.isEmpty()) {
-                double catGrade = calculateCatGrade(className, category);
-                categoryAverages.add(catGrade);
-            }
-        }
-
-        // Calculate the average of category averages
-        double averageGrade = 0.0;
-        if (!categoryAverages.isEmpty()) {
-            double sum = 0.0;
-            for (double avg : categoryAverages) {
-                sum += avg;
-            }
-            averageGrade = sum / categoryAverages.size();
-        } else {
-            // If no categories have grades, averageGrade remains 0.0
-            System.out.println("No grades available to calculate final grade.");
-        }
-
-        // Now calculate final grade, assigning average grade to empty categories
+        // Calculate the final grade
         for (String category : classCategories.keySet()) {
             double categoryPercentage = percents.get(category) / 100.0; // Convert to decimal
-            ArrayList<Double> grades = classCategories.get(category);
-            double catGrade;
-            if (grades != null && !grades.isEmpty()) {
-                catGrade = calculateCatGrade(className, category);
-            } else {
-                catGrade = averageGrade; // Assign average of category averages
-            }
+            double catGrade = calculateCatGrade(className, category);
             finalGrade += catGrade * categoryPercentage;
         }
 
@@ -934,9 +930,12 @@ public class GradeBook {
             finalGrade = applyRounding(finalGrade, className);
         }
 
-        grade[0] = String.format("%.2f", finalGrade);  // Store the rounded final grade
-        // Find the letter grade by matching finalGrade to the grading scale
+        // Store the actual final grade (might be over 100%)
+        grade[0] = String.format("%.2f", finalGrade);
+
+        // Determine the letter grade
         grade[1] = getLetterGrade(finalGrade, className);
+
         return grade;
     }
     /**
@@ -958,6 +957,7 @@ public class GradeBook {
     }
     /**
      * Determines the letter grade corresponding to the final grade based on the class's grading scale.
+     * If the final grade exceeds the highest cutoff, assigns the highest letter grade.
      * @param finalGrade The final numeric grade.
      * @param className The name of the class.
      * @return The letter grade corresponding to the final grade.
@@ -965,14 +965,21 @@ public class GradeBook {
     private String getLetterGrade(double finalGrade, String className) {
         ArrayList<Double> scale = gradingScale.get(className);
         if (scale != null) {
+            String[] letterGrades = GRADE_LABELS; // Use the defined grade labels
             for (int i = 0; i < scale.size(); i++) {
                 Double cutoff = scale.get(i);
                 if (cutoff != null && finalGrade >= cutoff) {
-                    return GRADE_LABELS[i];
+                    return letterGrades[i];
+                }
+            }
+            // If the final grade is higher than all cutoffs, return the highest grade
+            for (int i = 0; i < scale.size(); i++) {
+                if (scale.get(i) != null) {
+                    return letterGrades[i];
                 }
             }
         }
-        return "F"; // If no higher cutoff matches, default to "F"
+        return "No Scale";
     }
     /**
      * Allows the user to add hypothetical grades to see how they would affect the final grade.
@@ -1331,6 +1338,159 @@ public class GradeBook {
                 System.out.println("Failed to delete file: " + fileName);
             }
         }
+    }
+
+    /**
+     * Allows the user to edit or delete existing grades.
+     */
+    public void editGrade() {
+        if (classes.isEmpty()) {
+            System.out.println("No classes available. Please add a class first.");
+            return;
+        }
+
+        String className = confirmClassExists("Enter the class name where you want to edit grades:");
+        String categoryName = confirmCategoryExists(className, "Enter the category name where you want to edit grades:");
+        ArrayList<Double> grades = classes.get(className).get(categoryName);
+
+        if (grades.isEmpty()) {
+            System.out.println("No grades available in this category to edit.");
+            return;
+        }
+
+        // Display grades with indices
+        System.out.println("Grades in " + categoryName + ":");
+        for (int i = 0; i < grades.size(); i++) {
+            System.out.printf("%d) %.2f\n", i + 1, grades.get(i));
+        }
+
+        int index = -1;
+        while (true) {
+            System.out.println("Enter the number of the grade you want to edit or delete (or 0 to cancel):");
+            String input = scanner.nextLine().trim();
+            try {
+                index = Integer.parseInt(input);
+                if (index == 0) {
+                    System.out.println("Edit operation cancelled.");
+                    return;
+                }
+                if (index < 1 || index > grades.size()) {
+                    System.out.println("Invalid selection. Please try again.");
+                    continue;
+                }
+                break;
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a number corresponding to the grade.");
+            }
+        }
+
+        // Choose to edit or delete
+        System.out.println("Do you want to edit or delete this grade? (E/D)");
+        String choice = scanner.nextLine().trim().toLowerCase();
+        if (choice.equals("e") || choice.equals("edit")) {
+            // Edit the grade
+            double newGrade = getValidGrade();
+            grades.set(index - 1, newGrade);
+            System.out.println("Grade updated successfully.");
+        } else if (choice.equals("d") || choice.equals("delete")) {
+            // Confirm deletion
+            System.out.println("Are you sure you want to delete this grade? (Y/N)");
+            String confirm = scanner.nextLine().trim().toLowerCase();
+            if (confirm.equals("y") || confirm.equals("yes")) {
+                grades.remove(index - 1);
+                System.out.println("Grade deleted successfully.");
+            } else {
+                System.out.println("Deletion cancelled.");
+            }
+        } else {
+            System.out.println("Invalid choice. Operation cancelled.");
+        }
+    }
+
+    /**
+     * Calculates the average of a list of grades.
+     */
+    private double calculateAverage(ArrayList<Double> grades) {
+        if (grades == null || grades.isEmpty()) {
+            return 0.0;
+        }
+        double sum = 0.0;
+        for (double grade : grades) {
+            sum += grade;
+        }
+        return sum / grades.size();
+    }
+
+    /**
+     * Calculates the median of a list of grades.
+     */
+    private double calculateMedian(ArrayList<Double> grades) {
+        if (grades == null || grades.isEmpty()) {
+            return 0.0;
+        }
+        ArrayList<Double> sortedGrades = new ArrayList<>(grades);
+        sortedGrades.sort(null);
+        int middle = sortedGrades.size() / 2;
+        if (sortedGrades.size() % 2 == 0) {
+            return (sortedGrades.get(middle - 1) + sortedGrades.get(middle)) / 2.0;
+        } else {
+            return sortedGrades.get(middle);
+        }
+    }
+
+    /**
+     * Returns the highest grade from a list.
+     */
+    private double getHighestGrade(ArrayList<Double> grades) {
+        if (grades == null || grades.isEmpty()) {
+            return 0.0;
+        }
+        double highest = grades.get(0);
+        for (double grade : grades) {
+            if (grade > highest) {
+                highest = grade;
+            }
+        }
+        return highest;
+    }
+
+    /**
+     * Returns the lowest grade from a list.
+     */
+    private double getLowestGrade(ArrayList<Double> grades) {
+        if (grades == null || grades.isEmpty()) {
+            return 0.0;
+        }
+        double lowest = grades.get(0);
+        for (double grade : grades) {
+            if (grade < lowest) {
+                lowest = grade;
+            }
+        }
+        return lowest;
+    }
+
+    /**
+     * Displays help information to assist the user.
+     */
+    public void displayHelp() {
+        System.out.println("GradeBook Application Help");
+        System.out.println("==========================");
+        System.out.println("This application allows you to manage grades for multiple classes.");
+        System.out.println("Here are the available options:");
+        System.out.println("1) Add a new class - Create a new class and set up its grading criteria.");
+        System.out.println("2) Add new grade(s) - Enter grades for assignments in a class and category.");
+        System.out.println("3) View Grades and Statistics - Display all grades and detailed statistics for each class.");
+        System.out.println("4) Add possible grades - See how hypothetical grades affect your final grade.");
+        System.out.println("5) How to get wanted grade - Calculate what you need to achieve a desired final grade.");
+        System.out.println("6) Edit or Delete Grades - Modify or remove existing grades.");
+        System.out.println("7) Delete a class - Remove a class and all its data.");
+        System.out.println("8) Delete all data - Remove all data from the application.");
+        System.out.println("9) Help - Display this help information.");
+        System.out.println("10) Exit - Save your data and exit the application.");
+        System.out.println("\nFor more detailed instructions, please refer to the user manual.");
+        System.out.println("If you have any questions, feel free to contact support.");
+        System.out.println();
     }
 
 }

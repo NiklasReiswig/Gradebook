@@ -41,12 +41,14 @@ public class Driver {
             System.out.println("Choose an option:\n"
                     + "1) Add a new class\n"
                     + "2) Add new grade(s)\n"
-                    + "3) View Grades\n"
+                    + "3) View Grades and Statistics\n"
                     + "4) Add possible grades\n"
                     + "5) How to get wanted grade\n"
-                    + "6) Delete a class\n"
-                    + "7) Delete all data\n"
-                    + "8) Exit\n");
+                    + "6) Edit or Delete Grades\n"
+                    + "7) Delete a class\n"
+                    + "8) Delete all data\n"
+                    + "9) Help\n"
+                    + "10) Exit\n");
             String choice = scanner.nextLine().trim();
 
             switch (choice) {
@@ -66,12 +68,18 @@ public class Driver {
                     gradeBook.calculateNeededGradesForLetterGrade();
                     break;
                 case "6":
-                    gradeBook.deleteClass();
+                    gradeBook.editGrade();
                     break;
                 case "7":
-                    gradeBook.deleteAllData();
+                    gradeBook.deleteClass();
                     break;
                 case "8":
+                    gradeBook.deleteAllData();
+                    break;
+                case "9":
+                    gradeBook.displayHelp();
+                    break;
+                case "10":
                     exitWithPrompt(gradeBook); // Ask before exiting
                     return; // Exit loop if user confirms
                 default:
