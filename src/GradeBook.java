@@ -1264,4 +1264,73 @@ public class GradeBook {
         }
         return cutoff;
     }
+    /**
+     * Deletes a class and all its associated data.
+     * Prompts the user for the class name and confirmation before deletion.
+     */
+    public void deleteClass() {
+        if (classes.isEmpty()) {
+            System.out.println("No classes available to delete.");
+            return;
+        }
+
+        String className = confirmClassExists("Enter the name of the class you want to delete:");
+        System.out.println("Are you sure you want to delete the class '" + className + "' and all its data? (Y/N)");
+        String confirmation = scanner.nextLine().trim().toLowerCase();
+        if (confirmation.equals("y") || confirmation.equals("yes")) {
+            // Remove the class from all data structures
+            classes.remove(className);
+            gradingScale.remove(className);
+            drop.remove(className);
+            rounding.remove(className);
+            percentage.remove(className);
+
+            System.out.println("Class '" + className + "' has been deleted.");
+        } else {
+            System.out.println("Deletion cancelled.");
+        }
+    }
+
+    /**
+     * Deletes all saved data.
+     * Prompts the user for confirmation before deletion.
+     */
+    public void deleteAllData() {
+        System.out.println("Are you sure you want to delete ALL data? This action cannot be undone. (Y/N)");
+        String confirmation = scanner.nextLine().trim().toLowerCase();
+        if (confirmation.equals("y") || confirmation.equals("yes")) {
+            // Clear all data structures
+            classes.clear();
+            gradingScale.clear();
+            drop.clear();
+            rounding.clear();
+            percentage.clear();
+
+            // Delete all save files
+            deleteFile(GRADES);
+            deleteFile(GRADING_SCALE);
+            deleteFile(DROP);
+            deleteFile(ROUNDING);
+            deleteFile(PERCENTAGE);
+
+            System.out.println("All data has been deleted.");
+        } else {
+            System.out.println("Deletion cancelled.");
+        }
+    }
+
+    /**
+     * Deletes a file if it exists.
+     *
+     * @param fileName The name of the file to delete.
+     */
+    private void deleteFile(String fileName) {
+        File file = new File(fileName);
+        if (file.exists()) {
+            if (!file.delete()) {
+                System.out.println("Failed to delete file: " + fileName);
+            }
+        }
+    }
+
 }

@@ -1,15 +1,8 @@
 Class,Category,Grade
-csci232,tests,93.0
-csci232,tests,93.0
-csci232,labs,93.0
-csci232,labs,93.0
-csci232,labs,93.0
-csci232,labs,93.0
-csci232,programs,93.0
-csci232,programs,93.0
 eele250,exam3,100.0
-eele250,labs,100.0
 eele250,exam2,96.0
+eele250,labs,100.0
+eele250,exam1,95.2
 eele250,homework,50.0
 eele250,homework,75.0
 eele250,homework,75.0
@@ -28,7 +21,6 @@ eele250,homework,100.0
 eele250,homework,100.0
 eele250,homework,100.0
 eele250,homework,100.0
-eele250,exam1,95.2
 diffeq,exams,32.31
 diffeq,exams,62.14
 diffeq,exams,86.54

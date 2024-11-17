@@ -38,7 +38,15 @@ public class Driver {
      */
     private static void runProgramLoop(GradeBook gradeBook) {
         while (true) {
-            System.out.println("Choose an option:\n 1) Add a new class\n 2) Add new grade(s)\n 3) View Grades\n 4) Add possible grades\n 5) How to get wanted grade\n 6) Exit\n");
+            System.out.println("Choose an option:\n"
+                    + "1) Add a new class\n"
+                    + "2) Add new grade(s)\n"
+                    + "3) View Grades\n"
+                    + "4) Add possible grades\n"
+                    + "5) How to get wanted grade\n"
+                    + "6) Delete a class\n"
+                    + "7) Delete all data\n"
+                    + "8) Exit\n");
             String choice = scanner.nextLine().trim();
 
             switch (choice) {
@@ -58,6 +66,12 @@ public class Driver {
                     gradeBook.calculateNeededGradesForLetterGrade();
                     break;
                 case "6":
+                    gradeBook.deleteClass();
+                    break;
+                case "7":
+                    gradeBook.deleteAllData();
+                    break;
+                case "8":
                     exitWithPrompt(gradeBook); // Ask before exiting
                     return; // Exit loop if user confirms
                 default:
