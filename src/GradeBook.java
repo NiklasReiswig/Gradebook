@@ -1102,27 +1102,21 @@ public class GradeBook {
         // Get the desired letter grade
         String desiredLetterGrade = getDesiredLetterGrade(className);
 
-        // Map the desired letter grade to the minimum percentage cutoff
         double desiredFinalPercentage = getPercentageForLetterGrade(className, desiredLetterGrade);
-
         if (desiredFinalPercentage < 0) {
             System.out.println("Invalid letter grade or grading scale not defined for this class.");
             return;
         }
 
-        // Calculate current total contribution
-        double currentTotal = 0.0;
-        double totalWeightCompleted = 0.0;
-
         HashMap<String, Double> percents = percentage.get(className);
         HashMap<String, ArrayList<Double>> classCategories = classes.get(className);
+        if (percents == null || classCategories == null) {
+            System.out.println("No categories or percentages defined for this class.");
+            return;
+        }
 
-        // Store number of remaining items per category
-        HashMap<String, Integer> remainingItems = new HashMap<>();
-        // Store total possible points remaining per category
-        HashMap<String, Double> categoryNeededGrades = new HashMap<>();
-
-        // First, calculate current total and total completed weight
+        // Calculate the current total contribution towards the final grade
+        double currentTotal = 0.0;
         for (String category : percents.keySet()) {
             double categoryWeight = percents.get(category) / 100.0;
             ArrayList<Double> grades = classCategories.get(category);
@@ -1132,64 +1126,100 @@ public class GradeBook {
             }
         }
 
-        // Remaining weight is total percentages (should be 1.0) minus total weight completed
+        // Always prompt for the number of remaining assignments in each category
+        HashMap<String, Integer> remainingItems = new HashMap<>();
+        for (String category : percents.keySet()) {
+            int itemsLeft = getRemainingItemsForCategory(category);
+            remainingItems.put(category, itemsLeft);
+        }
+
+        // Calculate the total weight of categories that still have assignments left
         double remainingWeight = 0.0;
         for (String category : percents.keySet()) {
             double categoryWeight = percents.get(category) / 100.0;
-            ArrayList<Double> grades = classCategories.get(category);
-            if (grades == null || grades.isEmpty()) {
+            int itemsLeft = remainingItems.get(category);
+            if (itemsLeft > 0) {
                 remainingWeight += categoryWeight;
             }
         }
 
-        if (remainingWeight <= 0) {
-            System.out.println("All categories are completed. Current final grade: " + calculateFinalGrade(className)[0]);
+        double requiredRemainingTotal = desiredFinalPercentage - currentTotal;
+
+        // If no remaining assignments but desired is higher than current total, it's impossible
+        if (remainingWeight == 0 && requiredRemainingTotal > 0) {
+            System.out.println("No remaining assignments to improve your grade. It's not possible to reach " + desiredLetterGrade + ".");
             return;
         }
 
-        // Ask the user for the number of remaining items in each category
-        for (String category : percents.keySet()) {
+        if (requiredRemainingTotal <= 0) {
+            // Already surpass desired grade
+            System.out.printf("You have already met or exceeded the requirements for a %s (%.2f%%). No additional points needed.\n",
+                    desiredLetterGrade, desiredFinalPercentage);
+            return;
+        }
+
+        // Check if reaching the desired grade is possible
+        if (requiredRemainingTotal > remainingWeight * 100) {
+            System.out.println("It's not possible to achieve the desired final grade with the current grades and remaining assignments.");
+            return;
+        }
+
+        // Distribute the needed improvement proportionally based on category weights
+        for (String category : remainingItems.keySet()) {
+            int itemsLeft = remainingItems.get(category);
+            if (itemsLeft <= 0) {
+                // No future assignments in this category, skip calculations
+                continue;
+            }
+
+            double categoryWeight = percents.get(category) / 100.0;
+            double weightProportion = categoryWeight / remainingWeight;
+            double categoryNeededTotal = requiredRemainingTotal * weightProportion;
+
+            // Calculate existing category stats after dropping the lowest grades
             ArrayList<Double> grades = classCategories.get(category);
-            if (grades == null || grades.isEmpty()) {
-                int itemsLeft = getRemainingItemsForCategory(category);
-                remainingItems.put(category, itemsLeft);
+            double sumExisting = 0.0;
+            int existingCount = 0;
+            if (grades != null && !grades.isEmpty()) {
+                ArrayList<Double> catGrades = new ArrayList<>(grades);
+                catGrades.sort(null);
+                int dropping = 0;
+                if (drop.containsKey(className) && drop.get(className).containsKey(category)) {
+                    dropping = drop.get(className).get(category).intValue();
+                }
+                for (int i = dropping; i < catGrades.size(); i++) {
+                    sumExisting += catGrades.get(i);
+                    existingCount++;
+                }
+            }
+
+            double currentCatGrade = (existingCount > 0) ? (sumExisting / existingCount) : 0.0;
+            double currentCatContribution = currentCatGrade * categoryWeight;
+
+            // Final category grade needed
+            // (currentCatContribution + categoryNeededTotal) = catGradeFinal * categoryWeight
+            double catGradeFinal = (currentCatContribution + categoryNeededTotal) / categoryWeight;
+
+            // Solve for needed average on the remaining assignments:
+            // catGradeFinal = (sumExisting + neededGrade * itemsLeft) / (existingCount + itemsLeft)
+            // neededGrade * itemsLeft = catGradeFinal * (existingCount + itemsLeft) - sumExisting
+            double neededGrade = (catGradeFinal * (existingCount + itemsLeft) - sumExisting) / itemsLeft;
+
+            // Print results
+            if (neededGrade > 100) {
+                System.out.printf("To achieve %s (%.2f%%), in category '%s' you would need an average of %.2f%% on the remaining %d assignments, which is above 100%% and not possible.\n",
+                        desiredLetterGrade, desiredFinalPercentage, category, neededGrade, itemsLeft);
+            } else if (neededGrade < 0) {
+                // If the needed grade is less than 0, it means the requirement is already surpassed
+                System.out.printf("For category '%s', you have already secured enough points. No additional points needed to reach %s.\n",
+                        category, desiredLetterGrade);
+            } else {
+                System.out.printf("To achieve %s (%.2f%%) in category '%s', you need an average of %.2f%% on the remaining %d assignments.\n",
+                        desiredLetterGrade, desiredFinalPercentage, category, neededGrade, itemsLeft);
             }
         }
 
-        // Now, calculate the required total points from remaining categories
-        double requiredRemainingTotal = desiredFinalPercentage - currentTotal;
-
-        if (requiredRemainingTotal > remainingWeight * 100) {
-            System.out.println("It's not possible to achieve the desired final grade with the current grades.");
-            return;
-        }
-
-        // For each remaining category, calculate the required average grade
-        double totalNeeded = requiredRemainingTotal;
-        double totalRemainingWeight = remainingWeight;
-        for (String category : remainingItems.keySet()) {
-            double categoryWeight = percents.get(category) / 100.0;
-            // The proportion of this category's weight relative to the total remaining weight
-            double weightProportion = categoryWeight / totalRemainingWeight;
-            // The portion of the needed total that this category needs to contribute
-            double categoryNeededTotal = totalNeeded * weightProportion;
-            // Calculate the average grade needed in this category
-            int itemsLeft = remainingItems.get(category);
-            double neededGrade = categoryNeededTotal / categoryWeight;
-            // Assume all items have equal weight within the category
-            double neededGradePerItem = neededGrade; // If items are equally weighted
-            categoryNeededGrades.put(category, neededGradePerItem);
-        }
-
-        // Present the results
-        System.out.printf("To achieve a final grade of %s (%.2f%%), you need the following grades:\n", desiredLetterGrade, desiredFinalPercentage);
-        for (String category : categoryNeededGrades.keySet()) {
-            double neededGrade = categoryNeededGrades.get(category);
-            int itemsLeft = remainingItems.get(category);
-            System.out.printf("- In %s (%.2f%% of total grade), over %d remaining items, you need an average of %.2f%% per item.\n",
-                    category, percents.get(category), itemsLeft, neededGrade);
-        }
-        System.out.println("\n");
+        System.out.println();
     }
 
     /**
